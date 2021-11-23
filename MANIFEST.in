@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include slife *.css
+recursive-include slife *.csv
+recursive-include slife *.html
+recursive-include slife *.ico
+recursive-include slife *.js
+recursive-include slife *.json
+recursive-include slife *.md
+recursive-include slife *.png
+recursive-include slife *.py
+recursive-include slife *.svg
+recursive-include slife *.txt
+recursive-exclude slife *.pyc
