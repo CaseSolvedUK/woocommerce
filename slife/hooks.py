@@ -9,6 +9,20 @@ app_color = "grey"
 app_email = "support@casesolved.co.uk"
 app_license = "Proprietary"
 
+# Fixtures
+# --------
+
+fixtures = [
+	{
+		"dt": "Custom Field",
+		"filters": [ ["name", "like", "%oocommerce%"] ]
+	},
+	{
+		"dt": "Property Setter",
+		"filters": [ ["name", "=", "Sales Order-main-autoname"] ]
+	},
+]
+
 # Includes in <head>
 # ------------------
 
