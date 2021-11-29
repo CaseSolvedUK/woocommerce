@@ -82,8 +82,10 @@ class TestWoocommerce(unittest.TestCase):
 		for item in so.items:
 			self.assertTrue(bool(item.item_tax_template))
 			self.assertTrue(bool(item.warehouse))
+		self.assertEqual(flt(so.discount_amount), flt(order.get("discount_total")))
+		# Shipping charge & tax is included in WC total
 		self.assertEqual(flt(so.grand_total), flt(order.get("total")))
-		self.assertEqual(flt(so.total_taxes_and_charges), flt(order.get("total_tax")))
+		self.assertEqual(flt(so.total_taxes_and_charges), flt(order.get("total_tax")) + flt(order.get("shipping_total")))
 		self.assertTrue(bool(so.woocommerce_order_json))
 		# Test Sales Invoice
 		# Test RFQ
@@ -104,5 +106,9 @@ class TestWoocommerce(unittest.TestCase):
 		self.run_test_from_file('test_order_2.json')
 
 	def test_order_3(self):
-		"Change Billing address"
+		"Change Billing address with shipping"
 		self.run_test_from_file('test_order_3.json')
+
+	def test_order_4(self):
+		"Actual shipping example with 10% discount"
+		self.run_test_from_file('test_order_4.json')

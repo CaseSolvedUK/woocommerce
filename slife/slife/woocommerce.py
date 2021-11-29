@@ -70,9 +70,8 @@ def create_sales_order(order, customer, items):
 	sales_order.set_missing_values()
 	add_sales_order_items(order, sales_order, items)
 
-	# Fix:
-	#add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.f_n_f_account)
-	#add_tax_details(sales_order, order.get("shipping_total"), "Shipping Total", woocommerce_settings.f_n_f_account)
+	add_tax_details(sales_order, order.get("shipping_total"), "Shipping Charge", woocommerce_settings.f_n_f_account)
+	add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.tax_account)
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
