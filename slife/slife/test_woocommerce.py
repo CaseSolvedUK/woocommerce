@@ -10,13 +10,14 @@ class TestWoocommerce(unittest.TestCase):
 	"""
 	Submit Woocommerce test orders
 	Requires:
+	Frappe & ERPNext version-13 after 26th August 2021 for SO coupon discount support
 	Woocommerce settings configured including a secret
 	Fiscal Years (for customer)
 	Item templates for any variants with attributes that match woocommerce suffixes
 	Item Group set up with matching taxes (Item Tax Templates) valid from 1st Aug 2018
 	NO Sales Taxes and Charges Template
 	NO Rate set on Sales VAT Account(s)
-	Matching Coupon Codes
+	Matching Coupon Codes (transaction-based only)
 	Currency exchange rates
 	Accounts Settings -> Automatically Add Taxes and Charges from Item Tax Template
 	Accounts Settings -> Enable Discount Accounting
@@ -53,6 +54,7 @@ class TestWoocommerce(unittest.TestCase):
 
 	def validate_order(self, text):
 		import json
+		from frappe.utils import flt
 		order = json.loads(text)
 		billing = order.get('billing')
 
@@ -75,13 +77,13 @@ class TestWoocommerce(unittest.TestCase):
 		self.assertEqual(so.contact_person, customer.customer_primary_contact)
 		self.assertEqual(so.currency, order.get("currency"))
 		total_qty = sum(item.get('quantity') for item in order.get("line_items"))
-		self.assertEqual(so.total_qty, total_qty)
+		self.assertEqual(flt(so.total_qty), flt(total_qty))
 		self.assertTrue(bool(so.tax_category))
 		for item in so.items:
 			self.assertTrue(bool(item.item_tax_template))
 			self.assertTrue(bool(item.warehouse))
-		self.assertEqual(so.grand_total, order.get("total"))
-		self.assertEqual(so.total_taxes_and_charges, order.get("total_tax"))
+		self.assertEqual(flt(so.grand_total), flt(order.get("total")))
+		self.assertEqual(flt(so.total_taxes_and_charges), flt(order.get("total_tax")))
 		self.assertTrue(bool(so.woocommerce_order_json))
 		# Test Sales Invoice
 		# Test RFQ

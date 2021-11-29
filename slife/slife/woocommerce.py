@@ -66,15 +66,13 @@ def create_sales_order(order, customer, items):
 	sales_order.coupon_code = order.get("coupon_lines")[0].get("code")
 	sales_order.woocommerce_order_json = frappe.request.data.decode('utf8')
 
-	total = add_sales_order_items(order, sales_order, items)
-	sales_order.total = total
-
-	# Insert before adding the shipping charges so ERPNext brings through the correct Item Tax Template and applies it
-	sales_order.insert()
+	# !important
+	sales_order.set_missing_values()
+	add_sales_order_items(order, sales_order, items)
 
 	# Fix:
-	add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.f_n_f_account)
-	add_tax_details(sales_order, order.get("shipping_total"), "Shipping Total", woocommerce_settings.f_n_f_account)
+	#add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.f_n_f_account)
+	#add_tax_details(sales_order, order.get("shipping_total"), "Shipping Total", woocommerce_settings.f_n_f_account)
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
@@ -84,44 +82,35 @@ def create_sales_order(order, customer, items):
 	frappe.db.commit()
 	return sales_order
 
-def new_add_sales_order_items(order):
-	from erpnext.controllers.accounts_controller import set_order_defaults
-	set_order_defaults(parent_doctype, parent_doctype_name, child_doctype, child_docname, item_row)
-	
-
 def add_sales_order_items(order, sales_order, items):
-	from erpnext.stock.get_item_details import get_conversion_factor, get_item_warehouse
+	from erpnext.controllers.accounts_controller import add_taxes_from_tax_template, apply_pricing_rule_on_transaction
+	from erpnext.accounts.doctype.pricing_rule.pricing_rule import apply_pricing_rule
 
-	total = 0.0
 	for item_data in order.get("line_items"):
 		for match in items:
 			if item_data.get('product_id') == match.product_id:
 				item = match
+				break
 
 		qty = flt(item_data.get("quantity"))
 		subtotal = flt(item_data.get("subtotal"))
-		rate = subtotal / qty
 
-		sales_order.append("items", {
+		so_item = frappe.new_doc('Sales Order Item', sales_order, 'items')
+		so_item.update({
 			"item_code": item.name,
-			"item_name": item.item_name,
-			"description": item.description,
 			"delivery_date": sales_order.delivery_date,
-
-			"uom": item.sales_uom,
-			"stock_uom": item.stock_uom,
-			"conversion_factor": get_conversion_factor(item.name, item.sales_uom)['conversion_factor'],
-			"warehouse": get_item_warehouse(item, woocommerce_settings, overwrite_warehouse=True),
-
-			"base_rate": rate * sales_order.conversion_rate,
 			"qty": qty,
-			"rate": rate
+			"price_list_rate": subtotal / qty
 		})
-		total += flt(item_data.get("subtotal"))
-		# Apply the same tax as WC through the Item Group in ERPNext
-		#add_tax_details(sales_order, item_data.get("subtotal_tax"), "Ordered Item tax", woocommerce_settings.tax_account)
-	return total
 
+		sales_order.append('items', so_item)
+		# !important
+		sales_order.set_missing_item_details()
+		# !important
+		add_taxes_from_tax_template(so_item, sales_order)
+
+	#print(sales_order.as_dict())
+	sales_order.insert()
 
 def get_items(order):
 	"Get or create order items. Variants have attributes, normal items do not"
@@ -169,14 +158,14 @@ def get_items(order):
 
 		code = item.get('sku')
 		name = item.get('name')
-		description = f'{name}\n'
+		description = f'<p>{name}</p>'
 		for key in sorted(attributes):
 			code += f'-{attributes[key][0]}'
 			name += f' {attributes[key][1]}'
-			description += f'{key} = {attributes[key]}<br>'
+			description += f'<p>{key} = {attributes[key]}</p>'
 		doc.item_code = code
 		doc.item_name = name
-		doc.description = description
+		doc.description = f'<div>{description}</div>'
 		# Not in db but used later on Sales Order creation:
 		doc.product_id = item.get('product_id')
 
