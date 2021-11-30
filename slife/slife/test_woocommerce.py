@@ -100,7 +100,11 @@ class TestWoocommerce(unittest.TestCase):
 		self.assertEqual(flt(so.total_taxes_and_charges), flt(order.get("total_tax")) + flt(order.get("shipping_total")))
 		self.assertTrue(bool(so.woocommerce_order_json))
 		# Test Sales Invoice
+		si = frappe.get_cached_doc('Sales Invoice', {'po_no': ('=', f'{order_code}')})
+		self.assertTrue(bool(si))
 		# Test RFQ
+		rfq = frappe.get_cached_doc('Request for Quotation', {'rfq_number': ('=', f'{order_code}')})
+		self.assertTrue(bool(rfq))
 
 	def run_test_from_file(self, filename):
 		order = self.get_order(filename)
@@ -110,17 +114,17 @@ class TestWoocommerce(unittest.TestCase):
 		self.validate_order(order)
 
 	def test_order_1(self):
-		"Order with 100% discount coupon and single variant"
+		"Failed order with 100% discount coupon and single variant"
 		self.run_test_from_file('test_order_1.json')
 
 	def test_order_2(self):
-		"Order with 10% discount and two variants"
+		"Pending order with 10% discount and two variants"
 		self.run_test_from_file('test_order_2.json')
 
 	def test_order_3(self):
-		"Change Billing address with shipping"
+		"On-hold order, change Billing address, with shipping"
 		self.run_test_from_file('test_order_3.json')
 
 	def test_order_4(self):
-		"Actual shipping example with 10% discount"
+		"Processing order, actual shipping example with 10% discount"
 		self.run_test_from_file('test_order_4.json')
