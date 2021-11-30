@@ -37,13 +37,16 @@ def _order(*args, **kwargs):
 
 	woocommerce_settings = frappe.get_doc("Woocommerce Settings")
 	if event == "created":
-		# Sales Invoice and draft Request for Quotation (at least 1 default Supplier required)
-		customer = get_customer_by_email(order)
-		items = get_items(order)
-		sales_order = create_sales_order(order, customer, items)
-		sales_invoice = create_sales_invoice(order, sales_order)
-		if woocommerce_settings.orders_outsourced:
-			rfq = create_rfq(order, sales_order)
+		if order.get('status') in ('processing', 'pending', 'failed', 'on-hold'):
+			customer = get_customer_by_email(order)
+			items = get_items(order)
+			sales_order = create_sales_order(order, customer, items)
+			sales_invoice = create_sales_invoice(order, sales_order)
+			if woocommerce_settings.orders_outsourced:
+				rfq = create_rfq(order, sales_order)
+		else:
+			# Do nothing on cancelled, completed & refunded
+			pass
 
 def create_rfq(order, sales_order):
 	"Create a draft RFQ from a Material Request"
@@ -57,26 +60,28 @@ def create_rfq(order, sales_order):
 	mat_req.submit()
 
 	rfq = make_request_for_quotation(mat_req.name)
+
 	rfq_supplier = frappe.new_doc('Request for Quotation Supplier', rfq, 'suppliers')
 	rfq_supplier.supplier = woocommerce_settings.supplier
 	rfq.append('suppliers', rfq_supplier)
-	rfq.message_for_supplier = _('Please supply the specified items at the best possible rates')
+
+	rfq.rfq_number = sales_order.po_no
+	rfq.email_template = woocommerce_settings.rfq_email_template
 	rfq.insert()
 	return rfq
 
 def create_sales_invoice(order, sales_order):
-	"Submit the Sales Invoice"
+	"Create the Sales Invoice. processing: submitted. (pending, failed, on-hold): draft"
 	from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 
 	sales_invoice = make_sales_invoice(sales_order.name)
 	sales_invoice.insert()
-	# Question:
-	if order.get('status') == 'completed':
+	if order.get('status') == 'processing':
 		sales_invoice.submit()
 	return sales_invoice
 
 def create_sales_order(order, customer, items):
-	"Create a new sales order"
+	"Create a new sales order & mimic WC statuses: processing, pending, failed, on-hold"
 	from erpnext.setup.utils import get_exchange_rate
 	company_currency = frappe.get_cached_value('Company', woocommerce_settings.company, "default_currency")
 
@@ -109,6 +114,7 @@ def create_sales_order(order, customer, items):
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
+	#TODO: order status mimic
 	sales_order.save()
 	sales_order.submit()
 
@@ -169,8 +175,9 @@ def get_items(order):
 					disp = f'{key}:{value}'
 				except ValueError:
 					# sku
-					disp, _, sku = meta['value'].rpartition('_')
+					human, _, sku = meta['value'].rpartition('_')
 					value = int(sku)
+					disp = f'{key}:{human}'
 				attributes[key] = (value, disp, meta['value'])
 
 				attribute_doc = frappe.new_doc('Item Variant Attribute')
@@ -200,7 +207,7 @@ def get_items(order):
 		for key in sorted(attributes):
 			code += f'-{attributes[key][0]}'
 			name += f' {attributes[key][1]}'
-			description += f'<p>{key} = {attributes[key]}</p>'
+			description += f'<p>{key} = {attributes[key][2]}</p>'
 		doc.item_code = code
 		doc.item_name = name
 		doc.description = f'<div>{description}</div>'

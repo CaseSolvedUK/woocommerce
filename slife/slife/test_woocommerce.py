@@ -29,7 +29,7 @@ class TestWoocommerce(unittest.TestCase):
 	@classmethod
 	def send_order(cls, text):
 		"Mimic woocommerce order hook submission"
-		import requests, base64, hmac, hashlib
+		import requests, base64, hmac, hashlib, json
 		woocommerce_settings = frappe.get_doc("Woocommerce Settings")
 		sig = base64.b64encode(
 			hmac.new(
@@ -45,7 +45,16 @@ class TestWoocommerce(unittest.TestCase):
 			'x-wc-webhook-signature': sig
 		}
 		r = requests.post(url, headers=headers, data=text)
-		r.raise_for_status()
+		try:
+			r.raise_for_status()
+		except requests.HTTPError:
+			if 'json' in r.headers['Content-Type']:
+				j = r.json()
+				print('\n{exception}'.format(**j))
+				print(''.join(str(line) for line in json.loads(j['exc'])))
+			else:
+				print(r.text)
+			raise
 
 	@classmethod
 	def get_order(cls, filename):
@@ -73,7 +82,7 @@ class TestWoocommerce(unittest.TestCase):
 		self.assertTrue(bool(customer.customer_primary_address))
 		# Test Sales Order
 		order_code = order.get("order_key").rpartition("_")[2]
-		so = frappe.get_cached_doc('Sales Order', f'SO-{order_code}')
+		so = frappe.get_cached_doc('Sales Order', {'po_no': ('=', f'{order_code}')})
 		self.assertEqual(so.customer, customer.name)
 		self.assertEqual(so.po_no, order_code)
 		self.assertEqual(so.customer_address, customer.customer_primary_address)

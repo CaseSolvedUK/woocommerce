@@ -9,9 +9,10 @@ from slife import __version__ as version
 setup(
 	name="slife",
 	version=version,
-	description="Slife App",
-	author="Martin T.",
+	description="Woocommerce Sales Order creation web hook supporting variant and non-variant items and outsourcing",
+	author="Richard Case",
 	author_email="support@casesolved.co.uk",
+	license='Proprietary',
 	packages=find_packages(),
 	zip_safe=False,
 	include_package_data=True,

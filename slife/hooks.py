@@ -2,8 +2,9 @@ from . import __version__ as app_version
 
 app_name = "slife"
 app_title = "Slife App"
-app_publisher = "Martin T."
-app_description = "Slife App"
+app_publisher = "Richard Case"
+app_description = """Woocommerce Sales Order creation web hook supporting
+variant and non-variant items and outsourcing"""
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "support@casesolved.co.uk"
@@ -15,11 +16,7 @@ app_license = "Proprietary"
 fixtures = [
 	{
 		"dt": "Custom Field",
-		"filters": [ ["name", "like", "%oocommerce%"] ]
-	},
-	{
-		"dt": "Property Setter",
-		"filters": [ ["name", "=", "Sales Order-main-autoname"] ]
+		"filters": [ ["dt", "=", "Woocommerce Settings"] ]
 	},
 ]
 
