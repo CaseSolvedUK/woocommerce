@@ -14,13 +14,16 @@ class TestWoocommerce(unittest.TestCase):
 	Woocommerce settings configured including a secret
 	Fiscal Years (for customer)
 	Item templates for any variants with attributes that match woocommerce suffixes
-	Item Group set up with matching taxes (Item Tax Templates) valid from 1st Aug 2018
+	Item Group set up with matching taxes (Item Tax Templates) valid from 1st Aug 2018 & Cost Center
 	NO Sales Taxes and Charges Template
 	NO Rate set on Sales VAT Account(s)
-	Matching Coupon Codes (transaction-based only)
+	Matching Coupon Codes + Net Total Pricing Rule (transaction-based only)
 	Currency exchange rates
 	Accounts Settings -> Automatically Add Taxes and Charges from Item Tax Template
 	Accounts Settings -> Enable Discount Accounting
+	Lead Source
+	Payment Terms Template - uses Woocommerce 'payment_method' field as name or Company default
+	Company default Cost Center for Sales Invoices
 	"""
 
 	@classmethod

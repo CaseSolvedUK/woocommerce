@@ -41,8 +41,39 @@ def _order(*args, **kwargs):
 		customer = get_customer_by_email(order)
 		items = get_items(order)
 		sales_order = create_sales_order(order, customer, items)
-		#sales_invoice = create_sales_invoice(order)
-		#rfq = create_rfq(order)
+		sales_invoice = create_sales_invoice(order, sales_order)
+		if woocommerce_settings.orders_outsourced:
+			rfq = create_rfq(order, sales_order)
+
+def create_rfq(order, sales_order):
+	"Create a draft RFQ from a Material Request"
+	from erpnext.selling.doctype.sales_order.sales_order import make_material_request
+	from erpnext.stock.doctype.material_request.material_request import make_request_for_quotation
+
+	mat_req = make_material_request(sales_order.name)
+	quote_after = woocommerce_settings.quote_after or 7
+	mat_req.schedule_date = frappe.utils.add_days(mat_req.transaction_date, quote_after)
+	mat_req.insert()
+	mat_req.submit()
+
+	rfq = make_request_for_quotation(mat_req.name)
+	rfq_supplier = frappe.new_doc('Request for Quotation Supplier', rfq, 'suppliers')
+	rfq_supplier.supplier = woocommerce_settings.supplier
+	rfq.append('suppliers', rfq_supplier)
+	rfq.message_for_supplier = _('Please supply the specified items at the best possible rates')
+	rfq.insert()
+	return rfq
+
+def create_sales_invoice(order, sales_order):
+	"Submit the Sales Invoice"
+	from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+
+	sales_invoice = make_sales_invoice(sales_order.name)
+	sales_invoice.insert()
+	# Question:
+	if order.get('status') == 'completed':
+		sales_invoice.submit()
+	return sales_invoice
 
 def create_sales_order(order, customer, items):
 	"Create a new sales order"
@@ -66,6 +97,9 @@ def create_sales_order(order, customer, items):
 	sales_order.coupon_code = order.get("coupon_lines")[0].get("code")
 	sales_order.woocommerce_order_json = frappe.request.data.decode('utf8')
 
+	sales_order.source = woocommerce_settings.lead_source
+	sales_order.payment_terms_template = order.get("payment_method") or frappe.db.get_value('Company', woocommerce_settings.company, 'payment_terms')
+
 	# !important
 	sales_order.set_missing_values()
 	add_sales_order_items(order, sales_order, items)
@@ -76,13 +110,13 @@ def create_sales_order(order, customer, items):
 	#print(sales_order.as_dict())
 	#sales_order.validate()
 	sales_order.save()
-	#sales_order.submit()
+	sales_order.submit()
 
 	frappe.db.commit()
 	return sales_order
 
 def add_sales_order_items(order, sales_order, items):
-	from erpnext.controllers.accounts_controller import add_taxes_from_tax_template, apply_pricing_rule_on_transaction
+	from erpnext.controllers.accounts_controller import add_taxes_from_tax_template, set_child_tax_template_and_map
 	from erpnext.accounts.doctype.pricing_rule.pricing_rule import apply_pricing_rule
 
 	for item_data in order.get("line_items"):
@@ -105,9 +139,14 @@ def add_sales_order_items(order, sales_order, items):
 		sales_order.append('items', so_item)
 		# !important
 		sales_order.set_missing_item_details()
-		# !important
+		set_child_tax_template_and_map(item, so_item, sales_order)
 		add_taxes_from_tax_template(so_item, sales_order)
+		# !important
 
+	# Hack fix of bug
+	cost_center = frappe.get_value('Company', sales_order.company, 'cost_center')
+	for tax in sales_order.taxes:
+		tax.cost_center = cost_center
 	#print(sales_order.as_dict())
 	sales_order.insert()
 
