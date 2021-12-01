@@ -37,16 +37,19 @@ def _order(*args, **kwargs):
 
 	woocommerce_settings = frappe.get_doc("Woocommerce Settings")
 	if event == "created":
-		if order.get('status') in ('processing', 'pending', 'failed', 'on-hold'):
+		status = order.get('status')
+		if status in ('processing', 'pending', 'failed', 'on-hold'):
 			customer = get_customer_by_email(order)
 			items = get_items(order)
 			sales_order = create_sales_order(order, customer, items)
-			sales_invoice = create_sales_invoice(order, sales_order)
-			if woocommerce_settings.orders_outsourced:
-				rfq = create_rfq(order, sales_order)
-		else:
-			# Do nothing on cancelled, completed & refunded
-			pass
+
+			if status != 'pending':
+				sales_invoice = create_sales_invoice(order, sales_order)
+				if woocommerce_settings.orders_outsourced:
+					rfq = create_rfq(order, sales_order)
+				# Will not allow creation of sales invoice or material request if sales order is On Hold or Closed
+				update_sales_order_status(status, sales_order)
+		# Do nothing on cancelled, completed & refunded
 
 def create_rfq(order, sales_order):
 	"Create a draft RFQ from a Material Request"
@@ -81,7 +84,7 @@ def create_sales_invoice(order, sales_order):
 	return sales_invoice
 
 def create_sales_order(order, customer, items):
-	"Create a new sales order & mimic WC statuses: processing, pending, failed, on-hold"
+	"Create a new sales order"
 	from erpnext.setup.utils import get_exchange_rate
 	company_currency = frappe.get_cached_value('Company', woocommerce_settings.company, "default_currency")
 
@@ -114,12 +117,40 @@ def create_sales_order(order, customer, items):
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
-	#TODO: order status mimic
 	sales_order.save()
-	sales_order.submit()
+
+	status = order.get("status")
+	if status != 'pending':
+		sales_order.submit()
 
 	frappe.db.commit()
 	return sales_order
+
+def update_sales_order_status(status, sales_order):
+	"""
+	Mimic WC statuses:
+	pending - draft
+	processing - submitted
+	on-hold - submitted & On Hold
+	failed - submitted & Closed
+	"""
+	from frappe.desk.form.utils import add_comment
+
+	if 'hold' in status:
+		doc_status = 'On Hold'
+	elif 'fail' in status:
+		doc_status = 'Closed'
+	else:
+		return
+
+	add_comment(
+		reference_doctype=sales_order.doctype,
+		reference_name=sales_order.name,
+		content=_(f'Reason for state {doc_status}: Woocommerce Order Status'),
+		comment_email=frappe.session.user,
+		comment_by=frappe.session.user_fullname
+	)
+	sales_order.update_status(doc_status)
 
 def add_sales_order_items(order, sales_order, items):
 	from erpnext.controllers.accounts_controller import add_taxes_from_tax_template, set_child_tax_template_and_map
