@@ -2,11 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-import json
 from frappe import _
-from frappe.utils import flt
-from erpnext.controllers.item_variant import copy_attributes_to_variant
-from erpnext.erpnext_integrations.connectors.woocommerce_connection import verify_request, add_tax_details
 
 
 @frappe.whitelist(allow_guest=True)
@@ -21,6 +17,8 @@ def order(*args, **kwargs):
 woocommerce_settings = None
 def _order(*args, **kwargs):
 	global woocommerce_settings
+	import json
+	from erpnext.erpnext_integrations.connectors.woocommerce_connection import verify_request
 
 	if frappe.request and frappe.request.data:
 		verify_request()
@@ -44,6 +42,7 @@ def _order(*args, **kwargs):
 			sales_order = create_sales_order(order, customer, items)
 
 			if status != 'pending':
+				sales_order.submit()
 				sales_invoice = create_sales_invoice(order, sales_order)
 				if woocommerce_settings.orders_outsourced:
 					rfq = create_rfq(order, sales_order)
@@ -86,6 +85,7 @@ def create_sales_invoice(order, sales_order):
 def create_sales_order(order, customer, items):
 	"Create a new sales order"
 	from erpnext.setup.utils import get_exchange_rate
+	from erpnext.erpnext_integrations.connectors.woocommerce_connection import add_tax_details
 	company_currency = frappe.get_cached_value('Company', woocommerce_settings.company, "default_currency")
 
 	sales_order = frappe.new_doc("Sales Order")
@@ -117,12 +117,7 @@ def create_sales_order(order, customer, items):
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
-	sales_order.save()
-
-	status = order.get("status")
-	if status != 'pending':
-		sales_order.submit()
-
+	sales_order.insert()
 	frappe.db.commit()
 	return sales_order
 
@@ -153,6 +148,7 @@ def update_sales_order_status(status, sales_order):
 	sales_order.update_status(doc_status)
 
 def add_sales_order_items(order, sales_order, items):
+	from frappe.utils import flt
 	from erpnext.controllers.accounts_controller import add_taxes_from_tax_template, set_child_tax_template_and_map
 	from erpnext.accounts.doctype.pricing_rule.pricing_rule import apply_pricing_rule
 
@@ -189,8 +185,8 @@ def add_sales_order_items(order, sales_order, items):
 
 def get_items(order):
 	"Get or create order items. Variants have attributes, normal items do not"
-	language = frappe.get_single("System Settings").language or 'en'
-	company_abbr = frappe.db.get_value('Company', woocommerce_settings.company, 'abbr')
+	from erpnext.controllers.item_variant import copy_attributes_to_variant
+	default_wh = frappe.get_value('Warehouse', {'company': woocommerce_settings.company, 'name': ('like', 'Stores%')}, 'name')
 	meta_prefix = woocommerce_settings.attribute_key_prefix
 	items = []
 	for item in order.get('line_items'):
@@ -224,12 +220,12 @@ def get_items(order):
 			copy_attributes_to_variant(template, doc)
 		else:
 			doc.item_group = woocommerce_settings.item_group
-			doc.stock_uom = woocommerce_settings.uom or _("Nos", language)
+			doc.stock_uom = woocommerce_settings.uom or "Nos"
 			doc.sales_uom = doc.stock_uom
 			doc.is_stock_item = False
 			doc.append("item_defaults", {
 				"company": woocommerce_settings.company,
-				"default_warehouse": woocommerce_settings.warehouse or _(f"Stores - {company_abbr}", language)
+				"default_warehouse": woocommerce_settings.warehouse or default_wh
 			})
 
 		code = item.get('sku')

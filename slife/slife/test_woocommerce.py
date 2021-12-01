@@ -99,12 +99,14 @@ class TestWoocommerce(unittest.TestCase):
 		self.assertEqual(flt(so.grand_total), flt(order.get("total")))
 		self.assertEqual(flt(so.total_taxes_and_charges), flt(order.get("total_tax")) + flt(order.get("shipping_total")))
 		self.assertTrue(bool(so.woocommerce_order_json))
-		# Test Sales Invoice
-		si = frappe.get_cached_doc('Sales Invoice', {'po_no': ('=', f'{order_code}')})
-		self.assertTrue(bool(si))
-		# Test RFQ
-		rfq = frappe.get_cached_doc('Request for Quotation', {'rfq_number': ('=', f'{order_code}')})
-		self.assertTrue(bool(rfq))
+
+		if order.get('status') != 'pending':
+			# Test Sales Invoice
+			si = frappe.get_cached_doc('Sales Invoice', {'po_no': ('=', f'{order_code}')})
+			self.assertTrue(bool(si))
+			# Test RFQ
+			rfq = frappe.get_cached_doc('Request for Quotation', {'rfq_number': ('=', f'{order_code}')})
+			self.assertTrue(bool(rfq))
 
 	def run_test_from_file(self, filename):
 		order = self.get_order(filename)
