@@ -4,6 +4,8 @@
 import frappe
 from frappe import _
 
+# TODO: add fee_lines to the Sales Order. See test_order_7.json
+# TODO: create new endpoints to deal with new events: order.status_changed & order.updated & coupon.created
 
 @frappe.whitelist(allow_guest=True)
 def order(*args, **kwargs):
@@ -102,7 +104,7 @@ def create_sales_order(order, customer, items):
 	sales_order.company = woocommerce_settings.company
 	sales_order.currency = order.get("currency")
 	sales_order.conversion_rate = get_exchange_rate(order.get("currency"), company_currency)
-	sales_order.coupon_code = order.get("coupon_lines")[0].get("code")
+	sales_order.coupon_code = order.get("coupon_lines")[0].get("code") if order.get("coupon_lines") else None
 	sales_order.woocommerce_order_json = frappe.request.data.decode('utf8')
 
 	sales_order.source = woocommerce_settings.lead_source
@@ -181,7 +183,6 @@ def add_sales_order_items(order, sales_order, items):
 	for tax in sales_order.taxes:
 		tax.cost_center = cost_center
 	#print(sales_order.as_dict())
-	sales_order.insert()
 
 def get_items(order):
 	"Get or create order items. Variants have attributes, normal items do not"
@@ -216,7 +217,7 @@ def get_items(order):
 		# Test if variant
 		if attributes:
 			doc.variant_of = item.get('sku')
-			template = frappe.get_doc('Item', doc.variant_of)
+			template = frappe.get_doc('Item', {'name': doc.variant_of, 'has_variants': True})
 			copy_attributes_to_variant(template, doc)
 		else:
 			doc.item_group = woocommerce_settings.item_group

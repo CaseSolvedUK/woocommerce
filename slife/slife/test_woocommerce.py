@@ -14,6 +14,7 @@ class TestWoocommerce(unittest.TestCase):
 	Woocommerce settings configured including a secret
 	Fiscal Years (for customer)
 	Item templates for any variants with attributes that match woocommerce suffixes
+	(for testing, create skus: 11111111 & 22222222, not 33333333)
 	Item Group set up with matching taxes (Item Tax Templates) valid from 1st Aug 2018 & Cost Center
 	NO Sales Taxes and Charges Template
 	NO Rate set on Sales VAT Account(s)
@@ -25,6 +26,10 @@ class TestWoocommerce(unittest.TestCase):
 	Payment Terms Template - uses Woocommerce 'payment_method' field as name or Company default
 	Company default Cost Center for Sales Invoices
 	"""
+
+	def tearDown(self):
+		"Ensure the db connection is closed"
+		frappe.db.close()
 
 	@classmethod
 	def send_order(cls, text):
@@ -50,11 +55,14 @@ class TestWoocommerce(unittest.TestCase):
 		except requests.HTTPError:
 			if 'json' in r.headers['Content-Type']:
 				j = r.json()
-				print('\n{exception}'.format(**j))
-				print(''.join(str(line) for line in json.loads(j['exc'])))
+				if j.get('exception'):
+					print('\n{exception}'.format(**j))
+					print(''.join(str(line) for line in json.loads(j['exc'])))
 			else:
 				print(r.text)
 			raise
+		# Seems to use the wrong data for validation if not closed
+		frappe.db.close()
 
 	@classmethod
 	def get_order(cls, filename):
@@ -111,8 +119,6 @@ class TestWoocommerce(unittest.TestCase):
 	def run_test_from_file(self, filename):
 		order = self.get_order(filename)
 		self.send_order(order)
-		# Required to get latest db values: ???
-		frappe.db.close()
 		self.validate_order(order)
 
 	def test_order_1(self):
@@ -130,3 +136,16 @@ class TestWoocommerce(unittest.TestCase):
 	def test_order_4(self):
 		"Processing order, actual shipping example with 10% discount"
 		self.run_test_from_file('test_order_4.json')
+
+	def test_order_5(self):
+		"Pending order, no template fail"
+		import requests
+		order = self.get_order('test_order_5.json')
+		with self.assertRaises(requests.HTTPError) as obj:
+			self.send_order(order)
+		self.assertEqual(obj.exception.response.status_code, 404)
+		self.assertEqual(obj.exception.response.reason, 'NOT FOUND')
+
+	def test_order_6(self):
+		"Pending order, no coupon"
+		self.run_test_from_file('test_order_6.json')
