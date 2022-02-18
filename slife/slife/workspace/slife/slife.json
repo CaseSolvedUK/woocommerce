@@ -1,0 +1,36 @@
+{
+ "cards_label": "",
+ "category": "Administration",
+ "charts": [],
+ "creation": "2022-02-16 13:47:01.238807",
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "extends_another_page": 0,
+ "hide_custom": 0,
+ "icon": "setting",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "label": "Slife",
+ "links": [],
+ "modified": "2022-02-16 20:57:54.369495",
+ "modified_by": "Administrator",
+ "module": "Slife",
+ "name": "Slife",
+ "onboarding": "Slife",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 1,
+ "shortcuts": [
+  {
+   "doc_view": "",
+   "icon": "setting",
+   "label": "Woocommerce Settings",
+   "link_to": "Woocommerce Settings",
+   "type": "DocType"
+  }
+ ],
+ "shortcuts_label": "Shortcuts"
+}

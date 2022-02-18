@@ -15,6 +15,7 @@ app_license = "Proprietary"
 
 fixtures = [
 	{
+		# Single DocTypes cannot be customized so we use a fixture instead.
 		"dt": "Custom Field",
 		"filters": [ ["dt", "=", "Woocommerce Settings"] ]
 	},
@@ -100,13 +101,16 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-#	}
-# }
+doc_events = {
+#	"*": {
+#		"on_update": "method",
+#		"on_cancel": "method",
+#		"on_trash": "method"
+#	},
+	"Woocommerce Settings": {
+		"before_save": "slife.slife.woocommerce.settings_override"
+	}
+}
 
 # Scheduled Tasks
 # ---------------

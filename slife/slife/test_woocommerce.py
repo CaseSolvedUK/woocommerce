@@ -11,20 +11,28 @@ class TestWoocommerce(unittest.TestCase):
 	Submit Woocommerce test orders
 	Requires:
 	Frappe & ERPNext version-13 after 26th August 2021 for SO coupon discount support
-	Woocommerce settings configured including a secret
+	Woocommerce settings configured
+	 - mandatory fields
+	 - secret
+	 - attribute_key_prefix = _uni_item_
+	 - Customer Tax Category to match Item Group taxes (below)
 	Fiscal Years (for customer)
-	Item templates for any variants with attributes that match woocommerce suffixes
-	(for testing, create skus: 11111111 & 22222222, not 33333333)
+	Item templates with item_code = sku for woocommerce items with attributes/meta_data to make on-the-fly variants
+	 - for testing, create skus: 11111111 & 22222222, not 33333333
+	 - matching Item Attributes
 	Item Group set up with matching taxes (Item Tax Templates) valid from 1st Aug 2018 & Cost Center
+	 - Item Group Default Selling Cost Center will be used for the Item, but the Company Default Cost Center will be used as a fallback
 	NO Sales Taxes and Charges Template
 	NO Rate set on Sales VAT Account(s)
 	Matching Coupon Codes + Net Total Pricing Rule (transaction-based only)
+	 - ERPNext only supports one coupon code, the "code" WC field must match the ERPNext "name" field
 	Currency exchange rates
+	 - Enabled currency and rate set
 	Accounts Settings -> Automatically Add Taxes and Charges from Item Tax Template
 	Accounts Settings -> Enable Discount Accounting
 	Lead Source
 	Payment Terms Template - uses Woocommerce 'payment_method' field as name or Company default
-	Company default Cost Center for Sales Invoices
+	Company Default Cost Center
 	"""
 
 	def tearDown(self):
@@ -46,6 +54,7 @@ class TestWoocommerce(unittest.TestCase):
 		site = frappe.utils.get_site_url(frappe.local.site)
 		url = site + '/api/method/slife.slife.woocommerce.order'
 		headers = {
+			'X-Frappe-CSRF-Token': 'None',
 			'x-wc-webhook-event': 'created',
 			'x-wc-webhook-signature': sig
 		}
@@ -66,11 +75,15 @@ class TestWoocommerce(unittest.TestCase):
 
 	@classmethod
 	def get_order(cls, filename):
+		import json
 		from pathlib import Path
 		p = Path(__file__).with_name(filename)
 		with p.open('r') as f:
-			order = f.read()
-		return order
+			text = f.read()
+		order = json.loads(text)
+		h = frappe.generate_hash(length=13)
+		order['order_key'] = f'wc_order_{h}'
+		return json.dumps(order)
 
 	def validate_order(self, text):
 		import json
@@ -79,18 +92,18 @@ class TestWoocommerce(unittest.TestCase):
 		billing = order.get('billing')
 
 		# Test Contact exists
-		contact = frappe.get_cached_doc('Contact', f'{billing.get("first_name")} {billing.get("last_name")}')
+		contact = frappe.get_doc('Contact', f'{billing.get("first_name")} {billing.get("last_name")}')
 		self.assertTrue(bool(contact))
 		self.assertTrue(bool(contact.email_ids))
 		self.assertTrue(bool(contact.phone_nos))
 		# Test Customer & Address exist
-		customer = frappe.get_cached_doc('Customer', billing.get("company") or contact.name)
+		customer = frappe.get_doc('Customer', billing.get("company") or contact.name)
 		self.assertTrue(bool(customer))
 		self.assertEqual(customer.customer_primary_contact, contact.name)
 		self.assertTrue(bool(customer.customer_primary_address))
 		# Test Sales Order
 		order_code = order.get("order_key").rpartition("_")[2]
-		so = frappe.get_cached_doc('Sales Order', {'po_no': ('=', f'{order_code}')})
+		so = frappe.get_doc('Sales Order', {'po_no': ('=', f'{order_code}')})
 		self.assertEqual(so.customer, customer.name)
 		self.assertEqual(so.po_no, order_code)
 		self.assertEqual(so.customer_address, customer.customer_primary_address)

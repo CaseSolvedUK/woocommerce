@@ -4,8 +4,14 @@
 import frappe
 from frappe import _
 
+# Compatible with WooCommerce 5.9.0 & 6.2.0
+# TODO: remove Woocommerce Supplier in preference to using the ERPNext item/item group configured default Supplier
 # TODO: add fee_lines to the Sales Order. See test_order_7.json
-# TODO: create new endpoints to deal with new events: order.status_changed & order.updated & coupon.created
+# TODO: make generic endpoint to deal with new events with header x-wc-webhook-resource: order.status_changed & order.updated & coupon.created
+
+def settings_override(doc, method=None):
+	"Overwrite the default settings endpoint URL. Called from the Woocommerce Settings before_save event"
+	doc.endpoint = frappe.utils.get_site_url(frappe.local.site) + '/api/method/slife.slife.woocommerce.order'
 
 @frappe.whitelist(allow_guest=True)
 def order(*args, **kwargs):
@@ -35,7 +41,7 @@ def _order(*args, **kwargs):
 		# ignore empty requests
 		return
 
-	woocommerce_settings = frappe.get_doc("Woocommerce Settings")
+	woocommerce_settings = frappe.get_cached_doc("Woocommerce Settings")
 	if event == "created":
 		status = order.get('status')
 		if status in ('processing', 'pending', 'failed', 'on-hold'):
@@ -87,7 +93,6 @@ def create_sales_invoice(order, sales_order):
 def create_sales_order(order, customer, items):
 	"Create a new sales order"
 	from erpnext.setup.utils import get_exchange_rate
-	from erpnext.erpnext_integrations.connectors.woocommerce_connection import add_tax_details
 	company_currency = frappe.get_cached_value('Company', woocommerce_settings.company, "default_currency")
 
 	sales_order = frappe.new_doc("Sales Order")
@@ -113,9 +118,6 @@ def create_sales_order(order, customer, items):
 	# !important
 	sales_order.set_missing_values()
 	add_sales_order_items(order, sales_order, items)
-
-	add_tax_details(sales_order, order.get("shipping_total"), "Shipping Charge", woocommerce_settings.f_n_f_account)
-	add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.tax_account)
 
 	#print(sales_order.as_dict())
 	#sales_order.validate()
@@ -178,11 +180,22 @@ def add_sales_order_items(order, sales_order, items):
 		add_taxes_from_tax_template(so_item, sales_order)
 		# !important
 
-	# Hack fix of bug
+	add_tax_details(sales_order, order.get("shipping_total"), "Shipping Charge", woocommerce_settings.f_n_f_account)
+	add_tax_details(sales_order, order.get("shipping_tax"), "Shipping Tax", woocommerce_settings.tax_account)
+
+	# Hack fix of ERPNext bug #29871
 	cost_center = frappe.get_value('Company', sales_order.company, 'cost_center')
 	for tax in sales_order.taxes:
 		tax.cost_center = cost_center
 	#print(sales_order.as_dict())
+
+def add_tax_details(sales_order, price, desc, tax_account_head):
+	sales_order.append("taxes", {
+		"charge_type":"Actual",
+		"account_head": tax_account_head,
+		"tax_amount": price,
+		"description": desc
+	})
 
 def get_items(order):
 	"Get or create order items. Variants have attributes, normal items do not"
@@ -192,11 +205,21 @@ def get_items(order):
 	items = []
 	for item in order.get('line_items'):
 		doc = frappe.new_doc('Item')
+		code = item.get('sku')
 
 		attributes = {}
+		template = None
 		for meta in item.get('meta_data'):
 			if meta['key'].startswith(meta_prefix):
+				if not template:
+					template = frappe.get_cached_doc('Item', {'name': code, 'has_variants': True})
+					template_attributes = [attr.attribute for attr in template.attributes]
+
 				key = meta['key'][len(meta_prefix):]
+				# Skip attribute if not in template
+				if key not in template_attributes:
+					continue
+
 				try:
 					# numeric
 					value = int(meta['value'])
@@ -206,19 +229,23 @@ def get_items(order):
 					human, _, sku = meta['value'].rpartition('_')
 					value = int(sku)
 					disp = f'{key}:{human}'
+
+				# Save for later addition to code and name in consistent sorted order
 				attributes[key] = (value, disp, meta['value'])
 
 				attribute_doc = frappe.new_doc('Item Variant Attribute')
-				attribute_doc.variant_of = item.get('sku')
+				attribute_doc.variant_of = code
 				attribute_doc.attribute = key
 				attribute_doc.attribute_value = value
 				doc.append('attributes', attribute_doc)
 
-		# Test if variant
-		if attributes:
-			doc.variant_of = item.get('sku')
-			template = frappe.get_doc('Item', {'name': doc.variant_of, 'has_variants': True})
+		# Test if the item is a variant
+		if template:
 			copy_attributes_to_variant(template, doc)
+			name = template.get('item_name')
+			for key in sorted(attributes):
+				code += f'-{attributes[key][0]}'
+				name += f' {attributes[key][1]}'
 		else:
 			doc.item_group = woocommerce_settings.item_group
 			doc.stock_uom = woocommerce_settings.uom or "Nos"
@@ -228,18 +255,13 @@ def get_items(order):
 				"company": woocommerce_settings.company,
 				"default_warehouse": woocommerce_settings.warehouse or default_wh
 			})
+			name = item.get('name')
+			description = f'<p>{name}</p>'
+			doc.description = f'<div>{description}</div>'
 
-		code = item.get('sku')
-		name = item.get('name')
-		description = f'<p>{name}</p>'
-		for key in sorted(attributes):
-			code += f'-{attributes[key][0]}'
-			name += f' {attributes[key][1]}'
-			description += f'<p>{key} = {attributes[key][2]}</p>'
 		doc.item_code = code
 		doc.item_name = name
-		doc.description = f'<div>{description}</div>'
-		# Not in db but used later on Sales Order creation:
+		# Not in db but used later on in Sales Order creation:
 		doc.product_id = item.get('product_id')
 
 		try:
@@ -291,52 +313,38 @@ def add_addresses(order, doc_customer):
 
 	address_names = frappe.db.get_all('Dynamic Link',
 		filters={'parenttype': 'Address', 'link_doctype': 'Customer', 'link_name': doc_customer.name},
-		pluck='parent'
+		pluck='parent', order_by='parent asc'
 	)
 
 	for address_type in ['Billing', 'Shipping']:
 		address = order.get(address_type.lower())
 		if address.get('address_1').strip():
+			data = {
+				'country': frappe.get_value("Country", {"code": address.get("country").lower()}) or default_country,
+				'pincode': address.get('postcode'),
+				'state': address.get('state'),
+				'city': address.get('city'),
+				'address_line2': address.get('address_2'),
+				'address_line1': address.get('address_1'),
+				'address_type': address_type,
+				'address_title': doc_customer.customer_name,
+				'is_primary_address': 1 if address_type == 'Billing' else 0,
+				'is_shipping_address': 1 if address_type == 'Shipping' or order.get('shipping').get('address_1').strip() == '' else 0,
+				'links': [{
+					'link_doctype': 'Customer',
+					'link_name': doc_customer.name
+				}]
+			}
+
 			doc = frappe.new_doc('Address')
-			doc.country = frappe.get_value("Country", {"code": address.get("country").lower()}) or default_country
-			doc.pincode = address.get('postcode')
-			doc.state = address.get('state')
-			doc.city = address.get('city')
-			doc.address_line2 = address.get('address_2')
-			doc.address_line1 = address.get('address_1')
-			doc.address_type = address_type
-			doc.address_title = doc_customer.customer_name
-			doc.append("links", {
-				"link_doctype": "Customer",
-				"link_name": doc_customer.name
-			})
-			if address_type == 'Billing':
-				doc.is_primary_address = True
-			else:
-				doc.is_shipping_address = True
-
-			existing = None
+			doc.update(data)
 			for name in address_names:
-				if name.endswith(address_type):
-					existing = frappe.get_doc('Address', name)
-					break
-
-			if existing:
+				existing = frappe.get_doc('Address', name)
 				if same_address(doc, existing):
-					existing.update(doc.as_dict())
+					existing.update(data)
 					doc = existing
 					doc.save()
-				else:
-					renaming = True
-					i = 1
-					while(renaming):
-						try:
-							frappe.rename_doc("Address", existing.name, f'{doc_customer.customer_name} {i}')
-						except frappe.ValidationError:
-							i += 1
-							continue
-						renaming = False
-					doc.insert()
+					break
 			else:
 				doc.insert()
 
@@ -354,7 +362,9 @@ def same_address(new, existing):
 		r_1st = SM(None, new.address_line1.lower().strip(), existing.address_line1.lower().strip()).ratio()
 		r_pc = 1.0 if new.pincode.lower().replace(' ', '') == existing.pincode.lower().replace(' ', '') else 0.0
 		r_co = 1.0 if new.country.lower().replace(' ', '') == existing.country.lower().replace(' ', '') else 0.0
-		return r_1st * r_pc * r_co >= threshold
+		score = r_1st * r_pc * r_co
+		#print(f'{new.address_line1.strip()} : {existing.address_line1.strip()} = {score}')
+		return score >= threshold
 	# Keep the existing address if something is missing:
 	return True
 
