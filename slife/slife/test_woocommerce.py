@@ -128,11 +128,12 @@ class TestWoocommerce(unittest.TestCase):
 			# Test RFQ
 			rfq = frappe.get_cached_doc('Request for Quotation', {'rfq_number': ('=', f'{order_code}')})
 			self.assertTrue(bool(rfq))
+		return so
 
 	def run_test_from_file(self, filename):
 		order = self.get_order(filename)
 		self.send_order(order)
-		self.validate_order(order)
+		return (order, self.validate_order(order))
 
 	def test_order_1(self):
 		"Failed order with 100% discount coupon and single variant"
@@ -148,7 +149,11 @@ class TestWoocommerce(unittest.TestCase):
 
 	def test_order_4(self):
 		"Processing order, actual shipping example with 10% discount"
-		self.run_test_from_file('test_order_4.json')
+		text, so = self.run_test_from_file('test_order_4.json')
+		line2 = so.items[1]
+		self.assertIn('12324304', line2.item_code)
+		self.assertIn('77', line2.item_code)
+		self.assertNotIn('24301', line2.item_code)
 
 	def test_order_5(self):
 		"Pending order, no template fail"

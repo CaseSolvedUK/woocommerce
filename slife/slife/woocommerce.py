@@ -8,10 +8,11 @@ from frappe import _
 # TODO: remove Woocommerce Supplier in preference to using the ERPNext item/item group configured default Supplier
 # TODO: add fee_lines to the Sales Order. See test_order_7.json
 # TODO: make generic endpoint to deal with new events with header x-wc-webhook-resource: order.status_changed & order.updated & coupon.created
+# TODO: speed up frontend by queueing orders in a background_job/scheduler queue
 
 def settings_override(doc, method=None):
 	"Overwrite the default settings endpoint URL. Called from the Woocommerce Settings before_save event"
-	doc.endpoint = frappe.utils.get_site_url(frappe.local.site) + '/api/method/slife.slife.woocommerce.order'
+	doc.endpoint = f'https://{frappe.local.site}/api/method/slife.slife.woocommerce.order'
 
 @frappe.whitelist(allow_guest=True)
 def order(*args, **kwargs):
@@ -157,8 +158,9 @@ def add_sales_order_items(order, sales_order, items):
 	from erpnext.accounts.doctype.pricing_rule.pricing_rule import apply_pricing_rule
 
 	for item_data in order.get("line_items"):
+		item = None
 		for match in items:
-			if item_data.get('product_id') == match.product_id:
+			if item_data.get('erpnext_item_code') == match.item_code:
 				item = match
 				break
 
@@ -212,7 +214,7 @@ def get_items(order):
 		for meta in item.get('meta_data'):
 			if meta['key'].startswith(meta_prefix):
 				if not template:
-					template = frappe.get_cached_doc('Item', {'name': code, 'has_variants': True})
+					template = frappe.get_doc('Item', {'name': code, 'has_variants': True})
 					template_attributes = [attr.attribute for attr in template.attributes]
 
 				key = meta['key'][len(meta_prefix):]
@@ -261,14 +263,14 @@ def get_items(order):
 
 		doc.item_code = code
 		doc.item_name = name
-		# Not in db but used later on in Sales Order creation:
-		doc.product_id = item.get('product_id')
 
 		try:
 			doc.insert()
 		except frappe.DuplicateEntryError:
 			pass
 		items += [doc]
+		# used in add_sales_order_items:
+		item['erpnext_item_code'] = code
 	frappe.db.commit()
 	return items
 
