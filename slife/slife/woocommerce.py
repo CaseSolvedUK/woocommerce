@@ -8,7 +8,7 @@ from frappe import _
 # TODO: remove Woocommerce Supplier in preference to using the ERPNext item/item group configured default Supplier
 # TODO: add fee_lines to the Sales Order. See test_order_7.json
 # TODO: make generic endpoint to deal with new events with header x-wc-webhook-resource: order.status_changed & order.updated & coupon.created
-# TODO: speed up frontend by queueing orders in a background_job/scheduler queue
+# TODO: speed up frontend by queueing orders in a background_job/scheduler queue?
 
 def settings_override(doc, method=None):
 	"Overwrite the default settings endpoint URL. Called from the Woocommerce Settings before_save event"
@@ -199,6 +199,25 @@ def add_tax_details(sales_order, price, desc, tax_account_head):
 		"description": desc
 	})
 
+def attribute_value(key, org):
+	human, sep, value = org.rpartition('_')
+	if not sep:
+		human = value
+
+	try:
+		value = int(value)
+		return value, f'{key}:{human}'
+	except ValueError:
+		pass
+
+	try:
+		value = float(value)
+	except ValueError:
+		pass
+
+	# string
+	return value, f'{key}:{human}'
+
 def get_items(order):
 	"Get or create order items. Variants have attributes, normal items do not"
 	from erpnext.controllers.item_variant import copy_attributes_to_variant
@@ -222,15 +241,7 @@ def get_items(order):
 				if key not in template_attributes:
 					continue
 
-				try:
-					# numeric
-					value = int(meta['value'])
-					disp = f'{key}:{value}'
-				except ValueError:
-					# sku
-					human, _, sku = meta['value'].rpartition('_')
-					value = int(sku)
-					disp = f'{key}:{human}'
+				value, disp = attribute_value(key, meta['value'])
 
 				# Save for later addition to code and name in consistent sorted order
 				attributes[key] = (value, disp, meta['value'])

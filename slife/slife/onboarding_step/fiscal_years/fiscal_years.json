@@ -1,0 +1,20 @@
+{
+ "action": "Go to Page",
+ "creation": "2022-02-18 17:27:47.663448",
+ "description": "# Fiscal Years\n\nYou will need to set up Fiscal Years to cover any periods you will be receiving orders in.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2022-02-19 00:05:34.804514",
+ "modified_by": "Administrator",
+ "name": "Fiscal Years",
+ "owner": "Administrator",
+ "path": "fiscal-year",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Configure Fiscal Years",
+ "validate_action": 1
+}

@@ -1,0 +1,22 @@
+{
+ "action": "Update Settings",
+ "creation": "2022-02-18 14:50:48.234694",
+ "description": "## Defaults\nWoocommerce sends orders and ERPNext uses these defaults to create documents. Most fields are already described on the settings page.\n\nIt's important that you configure all the aspects of ERPNext that you will need to create Sales Orders and Invoices, for example Item Groups, Item Templates, Item Tax Templates, Tax Categories, Warehouses, default Item Suppliers and Email Templates. Then configure the Woocommerce Settings. Keep an eye on the Error Log for problems.\n\nThe module will always create the Customer, Addresses, Contact, Items (standard or variants) & Sales Order. If the Woocommerce order status is other than 'pending' (draft), the order will be submitted and a Sales Invoice also submitted. If you are outsourcing the order items, ERPNext will also create a Material Request and draft Request for Quotation for manual processing.\n\n## Sending to Woocommerce (optional)\n - Enable Sync - enable to push ERPNext objects back to Woocommerce\n - Woocommerce Server URL - used for finding the Woocommerce server for pushing\n - API consumer key - push authentication\n - API consumer secret - push authentication\n\n## Receiving from Woocommerce\n - Secret - used to authenticate incoming Woocommerce objects. Make this strong, anyone can send orders in at any time!\n - Endpoint - use this in a Woocommerce Order Created webhook\n\n## Accounting Details\n - Tax Account - for shipping tax\n - Freight and Forwarding Account - for shipping charges",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "field": "company",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 1,
+ "is_skipped": 0,
+ "modified": "2022-02-18 23:49:55.451380",
+ "modified_by": "Administrator",
+ "name": "Configure Woocommerce Settings",
+ "owner": "Administrator",
+ "reference_document": "Woocommerce Settings",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Configure Woocommerce Settings",
+ "validate_action": 1,
+ "value_to_validate": "%"
+}

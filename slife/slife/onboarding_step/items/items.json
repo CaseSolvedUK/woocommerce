@@ -1,0 +1,20 @@
+{
+ "action": "Go to Page",
+ "creation": "2022-02-18 17:35:43.091444",
+ "description": "The Woocommerce module will create Items on-the-fly in two forms:\n\n - **Standard** - order items without attributes will be created as normal Items, there is no additional configuration necessary\n - **Variants** - order items with attributes **must** have Item templates with an Item Code that matches the Woocommerce `sku`, and with Item Attributes that match those sent by Woocommerce. The Woocommerce Settings Attribute Key Prefix will be stripped from the `key` and the result used as the Item Attribute Name. The `value` must either be a number, or be a human-readable string equivalent and a code value separated by an underscore, some examples:\n\n`'key': 'prefix_width', 'value': '123.4'` - numeric attribute\n\n`'key': 'prefix_colour', 'value': 'pale_blue_1234'` - numeric attribute\n\n`'key': 'prefix_colour', 'value': 'bright_red_RED'` - non-numeric attribute",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2022-02-18 23:56:17.380568",
+ "modified_by": "Administrator",
+ "name": "Items",
+ "owner": "Administrator",
+ "path": "item",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Configure Item Templates",
+ "validate_action": 1
+}

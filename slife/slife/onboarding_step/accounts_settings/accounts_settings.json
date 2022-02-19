@@ -1,0 +1,22 @@
+{
+ "action": "Update Settings",
+ "creation": "2022-02-18 22:05:57.340061",
+ "description": "# Accounts Settings\n\nTwo settings should be enabled:\n\n - Accounts Settings -> Automatically Add Taxes and Charges from Item Tax Template\n - Accounts Settings -> Enable Discount Accounting",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "field": "add_taxes_from_item_tax_template",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 1,
+ "is_skipped": 0,
+ "modified": "2022-02-19 00:04:21.352283",
+ "modified_by": "Administrator",
+ "name": "Accounts Settings",
+ "owner": "Administrator",
+ "reference_document": "Accounts Settings",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Configure Accounts Settings",
+ "validate_action": 1,
+ "value_to_validate": "1"
+}

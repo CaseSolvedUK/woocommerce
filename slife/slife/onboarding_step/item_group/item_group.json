@@ -1,0 +1,20 @@
+{
+ "action": "Go to Page",
+ "creation": "2022-02-18 18:44:11.396385",
+ "description": "# Item Group\n\nAt least one Item Group should be configured with suitable Company Defaults and Item Taxes",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2022-02-18 23:59:54.736260",
+ "modified_by": "Administrator",
+ "name": "Item Group",
+ "owner": "Administrator",
+ "path": "#Tree/Item Group",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Configure Item Groups",
+ "validate_action": 1
+}

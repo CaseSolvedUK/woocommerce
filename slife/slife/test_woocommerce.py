@@ -10,7 +10,9 @@ class TestWoocommerce(unittest.TestCase):
 	"""
 	Submit Woocommerce test orders
 	Requires:
-	Frappe & ERPNext version-13 after 26th August 2021 for SO coupon discount support
+	Frappe & ERPNext after v13.11.0 for SO coupon discount support
+	Matching Coupon Codes + Net Total Pricing Rule (transaction-based only)
+	 - ERPNext only supports one coupon code, the "code" WC field must match the ERPNext "name" field
 	Woocommerce settings configured
 	 - mandatory fields
 	 - secret
@@ -24,8 +26,6 @@ class TestWoocommerce(unittest.TestCase):
 	 - Item Group Default Selling Cost Center will be used for the Item, but the Company Default Cost Center will be used as a fallback
 	NO Sales Taxes and Charges Template
 	NO Rate set on Sales VAT Account(s)
-	Matching Coupon Codes + Net Total Pricing Rule (transaction-based only)
-	 - ERPNext only supports one coupon code, the "code" WC field must match the ERPNext "name" field
 	Currency exchange rates
 	 - Enabled currency and rate set
 	Accounts Settings -> Automatically Add Taxes and Charges from Item Tax Template
@@ -35,8 +35,16 @@ class TestWoocommerce(unittest.TestCase):
 	Company Default Cost Center
 	"""
 
+	@classmethod
+	def tearDownClass(cls):
+		"Remove data - only once"
+		from erpnext.setup.doctype.company.company import create_transaction_deletion_request
+		company = frappe.db.get_single_value('Woocommerce Settings', 'company')
+		# Also deletes Pricing Rules: https://github.com/frappe/erpnext/issues/28823
+		#create_transaction_deletion_request(company)
+
 	def tearDown(self):
-		"Ensure the db connection is closed"
+		"Ensure the db connection is closed after each test"
 		frappe.db.close()
 
 	@classmethod

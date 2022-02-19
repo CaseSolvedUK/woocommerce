@@ -28,17 +28,41 @@
  "documentation_url": "https://docs.erpnext.com/docs/v13/user/manual/en/erpnext_integration/woocommerce_integration",
  "idx": 0,
  "is_complete": 0,
- "modified": "2022-02-16 13:42:23.811144",
+ "modified": "2022-02-19 00:08:14.815395",
  "modified_by": "Administrator",
  "module": "Slife",
  "name": "Slife",
  "owner": "Administrator",
  "steps": [
   {
+   "step": "Configure Woocommerce Settings"
+  },
+  {
+   "step": "Taxes"
+  },
+  {
+   "step": "Item Group"
+  },
+  {
+   "step": "Items"
+  },
+  {
+   "step": "Payment Terms"
+  },
+  {
+   "step": "Accounts Settings"
+  },
+  {
+   "step": "Fiscal Years"
+  },
+  {
+   "step": "Currency"
+  },
+  {
    "step": "Setup Coupon Codes"
   }
  ],
- "subtitle": "WooCommerce Integration and more.",
+ "subtitle": "Woocommerce Integration",
  "success_message": "The Slife Module is all set up!",
  "title": "Let's Set Up the Slife Module."
 }
